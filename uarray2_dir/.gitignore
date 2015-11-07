@@ -1,0 +1,3 @@
+# no need to track test files/debug directories
+*.o
+test*

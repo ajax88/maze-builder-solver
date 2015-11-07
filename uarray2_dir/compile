@@ -1,0 +1,21 @@
+#!/bin/sh
+clear 
+
+FLAGS="-g -O0 -Wall -Wextra -std=c99 -pedantic"
+
+rm -f *.o #remove hanging object files
+
+# compile all .c files
+
+case $# in
+  0) set *.c ;;
+esac  
+
+for cfile 
+do 
+  gcc $FLAGS -c $cfile
+done 
+
+gcc $FLAGS -o test uarray2_test.o \
+  uarray2.o
+
