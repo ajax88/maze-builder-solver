@@ -11,14 +11,35 @@
 #include "assert.h"
 #include "uarray2.h"
 
+void init(int row, int col, void *val, void *cl);
+void print(int row, int col, void *val, void *cl);
 
 int main(int argc, char *argv[])
 {
 	(void)argc;
 	(void)argv;
 	UArray2_T my_array = uarray2_new(10, 10, sizeof(int));
-	fprintf(stderr, "height:%d width:%d size:%d\n",uarray2_height(my_array),
-			uarray2_width(my_array), uarray2_size(my_array));
+	
+	uarray2_map(my_array, init, NULL);
+
+	int *curr = uarray2_at(my_array, 4, 4);
+	*curr = 12;
+	uarray2_map(my_array, print, NULL);
+
 	uarray2_free(&my_array);
 	return 0;
+}
+
+void init(int row, int col, void *val, void *cl)
+{
+	(void)cl;
+	int *ptr = val;
+	*ptr = row + col;
+	return;
+}
+
+void print(int row, int col, void *val, void *cl)
+{
+	(void)cl;
+	printf("val at row %d, col %d: %d\n", row, col, *(int*)val);
 }

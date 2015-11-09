@@ -47,12 +47,28 @@ extern int uarray2_size(UArray2_T array)
 	assert(array != NULL);
 	return array->size;
 }
-/*
-extern void *uarray2_at(UArray2_T array, int row, int col);
+/* It doesn't matter what the data type is, we just need to
+ * give the user the proper address of the first byte of whatever it is */
+extern void *uarray2_at(UArray2_T array, int row, int col)
+{
+	assert(array != NULL);
+	int index = (array->width * row + col) * array->size;
+	return &(array->elems[index]);
+}
+
 extern void uarray2_map(UArray2_T array, void apply(int row, int col, void *val,
-       			                            void *cl), void *cl);
-                        
-*/
+       			                            void *cl), void *cl)
+{
+	assert(array != NULL);
+	int row, col;
+	for (row = 0; row < array->height; row ++){
+		for(col = 0; col < array->width; col ++){
+			apply(row, col, uarray2_at(array, row, col), cl);
+		}
+	}
+	return;
+}                      
+
 extern void uarray2_free(UArray2_T *array)
 {
 	assert(array != NULL && *array != NULL);
