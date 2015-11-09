@@ -1,0 +1,4 @@
+# ignore everything relating to tests
+*test*
+# ignore .o files
+*.o
