@@ -16,5 +16,6 @@ int main(int argc, char *argv[])
 	(void)argv;
 	Maze_T maze = get_maze(10, 10);
 	print_maze(maze);
+	free_maze(&maze);
 	return 0;
 }

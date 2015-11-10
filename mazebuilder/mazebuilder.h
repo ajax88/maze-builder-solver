@@ -11,5 +11,7 @@ typedef struct Maze_T *Maze_T;
 
 extern Maze_T get_maze(int height, int width);
 extern void print_maze(Maze_T maze);
+extern void free_maze(Maze_T *maze);
+
 
 #endif

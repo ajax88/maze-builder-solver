@@ -17,15 +17,18 @@
 #define END 'E'
 #define PATH 'P'
 
+enum Directions{ LEFT, DOWN, UP, RIGHT };
 struct Maze_T {
 	UArray2_T data;
 
 };
-/* HELPER FUNCTIONS */
+/********************* HELPER PROTOTYPES **********************/
 static void print_apply(int row, int col, void *val, void *cl);
 static void maze_init(int row, int col, void *val, void *cl);
 
-/* USER/IMPLEMENTATION FUNCTIONS */
+
+/******************* USER/IMPLEMENTATION FUNCTIONS ************/
+
 
 extern Maze_T get_maze(int height, int width)
 {
@@ -45,8 +48,18 @@ extern void print_maze(Maze_T maze)
 	return;
 }
 
+extern void free_maze(Maze_T *maze)
+{
+	assert(maze != NULL && *maze != NULL);
+	uarray2_free(&((*maze)->data));
+	free(*maze);
+	return;
+}
 
-/* HELPER FUNCTIONS */
+
+/******************** HELPER FUNCTIONS **************************/
+
+
 static void print_apply(int row, int col, void *val, void *cl)
 {
 	(void)row;
