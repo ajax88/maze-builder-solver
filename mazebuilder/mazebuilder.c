@@ -6,10 +6,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "assert.h"
 #include "../uarray2_dir/uarray2.h"
 #include "../stack_dir/stack.h"
 #include "mazebuilder.h"
+
 
 #define WALL 'X'
 #define EMPTY ' '
@@ -17,26 +19,45 @@
 #define END 'E'
 #define PATH 'P'
 
-enum Directions{ LEFT, DOWN, UP, RIGHT };
+enum Directions{ LEFT, DOWN, UP, RIGHT, NONE };
 struct Maze_T {
 	UArray2_T data;
-
+	Stack_T paths;
 };
+
+typedef struct Position {
+	int row, col; 
+} *Position;
+
 /********************* HELPER PROTOTYPES **********************/
 static void print_apply(int row, int col, void *val, void *cl);
 static void maze_init(int row, int col, void *val, void *cl);
+static void build_paths(Maze_T maze);
+static char get_char(Maze_T maze, Position p, enum Directions dir);
+static int path_is_valid(Maze_T maze, Position p, enum Directions dir);
+static Position update_pos(Position p, enum Directions dir, int is_popped);
+static void clean_up_maze(int row, int col, void *val, void *cl);
 
 
 /******************* USER/IMPLEMENTATION FUNCTIONS ************/
 
-
+/* NEEDSWORK, if the while loop runs more than once (i.e a solution was not 
+ * possible for the at least the first call to build_paths, then this will
+ * result in a memory leak */
 extern Maze_T get_maze(int height, int width)
 {
 	Maze_T maze = malloc(sizeof(*maze));
 	maze->data = uarray2_new(height, width, sizeof(char));
+	do {
 	uarray2_map(maze->data, maze_init, maze);
+	build_paths(maze);
+	} while (*(char *)uarray2_at(maze->data, uarray2_height(maze->data) - 2,
+				uarray2_width(maze->data) - 2) != PATH);
+ 	/* this do while loop ensures that a solution is found, there are 
+	 * certain special cases that prevent a solution from being 
+	 * possible based on how each maze cannot have 4 paths in a 2x2 block */
+	uarray2_map(maze->data, clean_up_maze, NULL);
 	return maze;
-
 }
 
 extern void print_maze(Maze_T maze)
@@ -52,6 +73,7 @@ extern void free_maze(Maze_T *maze)
 {
 	assert(maze != NULL && *maze != NULL);
 	uarray2_free(&((*maze)->data));
+	stack_free(&((*maze)->paths));
 	free(*maze);
 	return;
 }
@@ -92,5 +114,163 @@ static void maze_init(int row, int col, void *val, void *cl)
 
 	return; 
 }
+static void build_paths(Maze_T maze)
+{
+	int is_popped = 0;
+	srand(time(NULL));
+	Position curr = malloc(sizeof(*curr));
+	curr->row = 1;
+	curr->col = 1;
+	maze->paths = stack_new();
+	while(1) {
+		int is_stuck = 0;
+		char *curr_char = uarray2_at(maze->data, curr->row, curr->col);
+		*curr_char = PATH;
+		if (!is_popped)
+			stack_push(maze->paths, curr);
+		int dir = (rand() % 4);
+		for (int i = 0; i < 4; i ++){
+			if (get_char(maze, curr, dir) == EMPTY && 
+					path_is_valid(maze, curr, dir)){
+				curr = update_pos(curr, dir, is_popped);
+				break;
+			}
+			if (i == 3) {
+				is_stuck = 1;
+				break;
+			}
+			if (dir == 3)
+				dir = 0;
+			else 
+				dir += 1;
+		}
 
+		if (is_stuck){
+			if (is_popped)
+				free(curr);
+			if (is_empty(maze->paths))
+				break;
+			curr = stack_pop(maze->paths);
+			is_popped = 1;
+			continue;
+		}
+		is_popped = 0;
+	}
+}
 
+static char get_char(Maze_T maze, Position p, enum Directions dir)
+{
+	assert(maze != NULL && p != NULL);
+	char  *curr_char;
+	if (dir == LEFT) {
+		curr_char = uarray2_at(maze->data, p->row, p->col - 1);
+		return *curr_char;
+	} else if (dir == DOWN){
+		curr_char = uarray2_at(maze->data, p->row + 1, p->col);
+		return *curr_char;
+	} else if (dir == UP) {
+		curr_char = uarray2_at(maze->data, p->row - 1, p->col);
+		return *curr_char;
+	} else if (dir == RIGHT) {
+		curr_char = uarray2_at(maze->data, p->row, p->col + 1);
+		return *curr_char;
+	} else {
+		curr_char = uarray2_at(maze->data, p->row, p->col);
+		return *curr_char;
+	}
+}
+static int path_is_valid(Maze_T maze, Position p, enum Directions dir)
+{
+	assert(maze != NULL && p != NULL);
+	char *curr_char;
+	int width = uarray2_width(maze->data);
+	int height = uarray2_height(maze->data);
+	/* Check all positions around p->row, p->col - 1 except for 
+	 * path where you came from */
+	if (dir == LEFT){
+		curr_char = uarray2_at(maze->data, p->row + 1, p->col - 1);
+		if (*curr_char == PATH)
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row - 1, p->col - 1);
+		if (*curr_char == PATH)
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row, p->col - 2);
+		if (*curr_char == PATH)
+			return 0;
+		return 1;
+	} else if (dir == DOWN) {
+		curr_char = uarray2_at(maze->data, p->row + 1, p->col - 1);
+		if (*curr_char == PATH) 
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row + 1, p->col + 1);
+		if (*curr_char == PATH && p->row != height - 2 
+				&& p->col != width - 2) /* special case */
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row + 2, p->col);
+		if (*curr_char == PATH && p->row != height - 2 
+				&& p->col != width - 2) /* special case */
+			return 0;
+		return 1;
+	} else if (dir == UP) {
+		curr_char = uarray2_at(maze->data, p->row - 1, p->col - 1);
+		if (*curr_char == PATH)
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row - 1, p->col + 1);
+		if (*curr_char == PATH)
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row - 2, p->col);
+		if (*curr_char == PATH)
+			return 0;
+		return 1;
+	} else if (dir == RIGHT) {
+		curr_char = uarray2_at(maze->data, p->row + 1, p->col + 1);
+		if (*curr_char == PATH && p->row != height - 2 
+				&& p->col != width - 2) /* special case */
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row - 1, p->col + 1);
+		if (*curr_char == PATH)
+			return 0;
+		curr_char = uarray2_at(maze->data, p->row, p->col + 2);
+		if (*curr_char == PATH && p->row != height - 2 
+				&& p->col != width - 2) /* special case */
+			return 0;
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+static Position update_pos(Position p, enum Directions dir, int is_popped)
+{
+	assert(p != NULL);
+	Position new_pos = malloc(sizeof(*new_pos));
+	new_pos->row = p->row;
+	new_pos->col = p->col;
+	if (is_popped) {
+		free(p);
+	}
+	if (dir == LEFT)
+		new_pos->col -= 1;
+	else if (dir == DOWN)
+		new_pos->row += 1;
+	else if (dir == UP)
+		new_pos->row -= 1;
+	else if (dir == RIGHT)
+		new_pos->col += 1;
+	else 
+		return new_pos;
+	return new_pos;
+}
+
+static void clean_up_maze(int row, int col, void *val, void *cl)
+{
+	(void)row;
+	(void)col;
+	(void)cl;
+	char *curr = val;
+	if (*curr == EMPTY)
+		*curr = WALL;
+	if (*curr == PATH)
+		*curr = EMPTY;
+	return;
+}

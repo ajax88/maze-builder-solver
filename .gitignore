@@ -1,2 +1,5 @@
 # no need for object files
 *.o
+# remove debugging directories
+*.dsym/
+
