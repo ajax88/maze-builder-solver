@@ -9,12 +9,17 @@
 #include <stdlib.h>
 #include "assert.h"
 #include "mazebuilder/mazebuilder.h"
+#include "mazesolver/mazesolver.h"
 
 int main(int argc, char *argv[])
 {
 	(void)argc;
 	(void)argv;
-	Maze_T maze = get_maze(80, 100);
+	Maze_T maze = get_maze(100, 100);
+	printf("Unsolved maze: \n");
+	print_maze(maze);
+	solve_maze(maze);
+	printf("Solved maze: \n");
 	print_maze(maze);
 	free_maze(&maze);
 	return 0;

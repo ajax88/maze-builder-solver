@@ -13,22 +13,6 @@
 #include "mazebuilder.h"
 
 
-#define WALL 'X'
-#define EMPTY ' '
-#define START 'S'
-#define END 'E'
-#define PATH 'P'
-
-enum Directions{ LEFT, DOWN, UP, RIGHT, NONE };
-struct Maze_T {
-	UArray2_T data;
-	Stack_T paths;
-};
-
-typedef struct Position {
-	int row, col; 
-} *Position;
-
 /********************* HELPER PROTOTYPES **********************/
 static void print_apply(int row, int col, void *val, void *cl);
 static void maze_init(int row, int col, void *val, void *cl);
@@ -274,3 +258,47 @@ static void clean_up_maze(int row, int col, void *val, void *cl)
 		*curr = EMPTY;
 	return;
 }
+extern void solve_maze(Maze_T maze)
+{
+	assert(maze != NULL);
+	Stack_T paths = stack_new();
+	int end_found = 0;
+	int no_path = 0;
+	char *curr_char;
+	/* first path pos will be (1,1) */
+	Position curr = malloc(sizeof(*curr));
+	curr->row = 1;
+	curr->col = 1;
+	do {
+		curr_char = uarray2_at(maze->data, curr->row, curr->col);
+		*curr_char = PATH;
+		if (!no_path)
+			stack_push(paths, curr);
+		no_path = 0;
+		for (int i = 0; i < 4; i++) {
+			if (get_char(maze, curr, i) == END) {
+				end_found = 1;
+				break;
+			}
+			if (get_char(maze, curr, i) == EMPTY) {
+				curr = update_pos(curr, i);
+				break;
+			} /* no valid path around all 4 positions */
+			if (i == 3) 
+				no_path = 1;
+		}
+		if (no_path) {
+			*curr_char = OLD_PATH;
+			//free(curr);
+			curr = stack_pop(paths);
+		}
+		if (end_found)
+			break;
+	} while (!is_empty(paths));
+	if (!end_found)
+		printf("MAZE HAS NO SOLUTION\n");
+	uarray2_map(maze->data, remove_non_path, NULL);
+	return;
+
+}
+

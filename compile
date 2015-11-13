@@ -4,9 +4,7 @@ clear
 FLAGS="-g -O0 -Wall -Wextra -std=c99 -pedantic"
 
 rm -f *.o #remove hanging object files
-rm -f mazebuilder/*.o
-rm -f stack_dir/*.o
-rm -f uarray2_dir/*.o
+rm -f */*.o
 
 
 # compile all .c files
@@ -16,19 +14,9 @@ do
 	gcc $FLAGS -c $i
 done 
 
-for i in mazebuilder/*.c 
-do 
-	gcc $FLAGS -c $i
-done 
-
-for i in stack_dir/*.c 
-do 
-	gcc $FLAGS -c $i
-done 
-
-for i in uarray2_dir/*.c
+for i in */*.c
 do 
 	gcc $FLAGS -c $i
 done
 gcc $FLAGS -o build_solve build_solve.o \
-	uarray2.o stack.o mazebuilder.o
+	uarray2.o stack.o mazebuilder.o \
