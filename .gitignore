@@ -2,4 +2,5 @@
 *.o
 # remove debugging directories
 *.dsym/
-
+# remove temp files
+*.swp

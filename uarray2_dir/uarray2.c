@@ -9,6 +9,11 @@
 #include "assert.h"
 #include "uarray2.h"
 
+/* For performance tuning, consider declaring char *elems as 
+ * char elems[], this will allow me to malloc the size of the struct to be equal
+ * to the 3 ints along with all the space needed for the array given to the
+ * user, all held within a single struct. This will reduce the level of pointer 
+ * chasing by 1 */
 struct UArray2_T {
 	int height, width, size;
 	char *elems; /* We are storing an array of any size, the storing/
