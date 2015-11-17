@@ -11,11 +11,16 @@
 
 struct UArray2_T {
 	int height, width, size;
-	char *elems;
+	char *elems; /* We are storing an array of any size, the storing/
+			recovering of data will be handled by the following 
+			functions, so the user does not need to care about this
+			representation */
 };
 
 extern UArray2_T uarray2_new(int height, int width, int size)
 {
+	/* Does not allow for a 2-D array w/ width or height of 0, as it is not 
+	 * dynamic */
 	assert(height != 0 && width != 0 && size !=0);
 
 	UArray2_T array = malloc(sizeof(*array));
@@ -47,6 +52,7 @@ extern int uarray2_size(UArray2_T array)
 	assert(array != NULL);
 	return array->size;
 }
+
 /* It doesn't matter what the data type is, we just need to
  * give the user the proper address of the first byte of whatever it is */
 extern void *uarray2_at(UArray2_T array, int row, int col)
@@ -76,4 +82,3 @@ extern void uarray2_free(UArray2_T *array)
 	free(*array);
 	return;
 }
-

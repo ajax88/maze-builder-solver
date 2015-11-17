@@ -67,7 +67,6 @@ extern void stack_free(Stack_T *stk)
 
 /* STATIC PRIVATE FUNCTIONS */
 
-
 static Stack_T expand(Stack_T stk)
 {
 	assert(stk != NULL);

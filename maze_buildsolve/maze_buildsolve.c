@@ -1,7 +1,7 @@
-/* maze_builder.c 
+/* maze_buildsolve.c 
  * Created by Alex Jackson
  * 	11/9/15
- * Implemenation for the maze builing abstraction
+ * Implemenation for the maze building/solving abstraction
  */
 
 #include <stdio.h>
@@ -10,10 +10,30 @@
 #include "assert.h"
 #include "../uarray2_dir/uarray2.h"
 #include "../stack_dir/stack.h"
-#include "mazebuilder.h"
+#include "maze_buildsolve.h"
 
+#define WALL 'X'
+#define EMPTY ' '
+#define START 'S'
+#define END 'E'
+#define PATH 'P'
+#define OLD_PATH 'B'
 
-/********************* HELPER PROTOTYPES **********************/
+struct Maze_T {
+	UArray2_T data;
+	Stack_T paths;
+};
+
+typedef struct Position {
+	int row, col; 
+} *Position;
+
+enum Directions{ LEFT, DOWN, UP, RIGHT, NONE };
+
+/******************************************************************************
+ ************************** HELPER FUNCTION PROTOTYPES ************************
+ *****************************************************************************/
+
 static void print_apply(int row, int col, void *val, void *cl);
 static void maze_init(int row, int col, void *val, void *cl);
 static void build_paths(Maze_T maze);
@@ -21,28 +41,31 @@ static char get_char(Maze_T maze, Position p, enum Directions dir);
 static int path_is_valid(Maze_T maze, Position p, enum Directions dir);
 static Position update_pos(Position p, enum Directions dir, int is_popped);
 static void clean_up_maze(int row, int col, void *val, void *cl);
+static void rm_old_paths(int row, int col, void *val, void *cl);
 
+/******************************************************************************
+ ************************** USER/INTERFACE FUNCTIONS ************************** 
+ *****************************************************************************/
 
-/******************* USER/IMPLEMENTATION FUNCTIONS ************/
-
-/* NEEDSWORK, if the while loop runs more than once (i.e a solution was not 
- * possible for the at least the first call to build_paths, then this will
- * result in a memory leak */
 extern Maze_T get_maze(int height, int width)
 {
+	assert(height > 3 && width > 3); /* to ensure that the maze is non-
+					  trivial (and that it doesn't break) */
 	Maze_T maze = malloc(sizeof(*maze));
 	maze->data = uarray2_new(height, width, sizeof(char));
+	maze->paths = stack_new();
 	do {
-	uarray2_map(maze->data, maze_init, maze);
-	build_paths(maze);
+		uarray2_map(maze->data, maze_init, maze);
+		build_paths(maze);
 	} while (*(char *)uarray2_at(maze->data, uarray2_height(maze->data) - 2,
 				uarray2_width(maze->data) - 2) != PATH);
- 	/* this do while loop ensures that a solution is found, there are 
+	/* this do while loop ensures that a solution is found, there are 
 	 * certain special cases that prevent a solution from being 
 	 * possible based on how each maze cannot have 4 paths in a 2x2 block */
 	uarray2_map(maze->data, clean_up_maze, NULL);
 	return maze;
 }
+
 
 extern void print_maze(Maze_T maze)
 {
@@ -62,9 +85,57 @@ extern void free_maze(Maze_T *maze)
 	return;
 }
 
+/* NEEDSWORK there is a very rare case where if a path is not found where 
+ * the stack bounces back to the first path (at index 1,1), this will pop the 
+ * position off of the stack and end the loop early. */
+extern void solve_maze(Maze_T maze)
+{
+	assert(maze != NULL);
+	assert(is_empty(maze->paths)); /* the stack of the maze shouldn't have 
+					 any elements */
+	int end_found = 0;
+	char *curr_char;
+	/* first path pos will be (1,1) */
+	Position curr = malloc(sizeof(*curr));
+	curr->row = 1;
+	curr->col = 1;
+	do {
+		curr_char = uarray2_at(maze->data, curr->row, curr->col);
+		*curr_char = PATH;
+		for (int i = 0; i < 4; i++) {
+			if (get_char(maze, curr, i) == END) {
+				end_found = 1;
+				break;
+			}
+			if (get_char(maze, curr, i) == EMPTY) {
+				stack_push(maze->paths, curr);
+				curr = update_pos(curr, i, 0);
+				break;
+			} /* no valid path around all 4 positions */
+			if (i == 3) {
+				*curr_char = OLD_PATH;
+				free(curr);
+				curr = stack_pop(maze->paths);
+			}
+		}
+		if (end_found)
+			break;
+	} while (!is_empty(maze->paths));
+	if (!end_found)
+		printf("MAZE HAS NO SOLUTION\n");
+	uarray2_map(maze->data, rm_old_paths, NULL);
+	/* Clean up data */
+	while (!is_empty(maze->paths)) {
+		free(curr);
+		curr = stack_pop(maze->paths);
+	}
+	free(curr);
+	return;
+}
 
-/******************** HELPER FUNCTIONS **************************/
-
+/******************************************************************************
+ ******************************** HELPER FUNCTIONS **************************** 
+ *****************************************************************************/
 
 static void print_apply(int row, int col, void *val, void *cl)
 {
@@ -105,7 +176,6 @@ static void build_paths(Maze_T maze)
 	Position curr = malloc(sizeof(*curr));
 	curr->row = 1;
 	curr->col = 1;
-	maze->paths = stack_new();
 	while(1) {
 		int is_stuck = 0;
 		char *curr_char = uarray2_at(maze->data, curr->row, curr->col);
@@ -167,8 +237,6 @@ static int path_is_valid(Maze_T maze, Position p, enum Directions dir)
 {
 	assert(maze != NULL && p != NULL);
 	char *curr_char;
-	int width = uarray2_width(maze->data);
-	int height = uarray2_height(maze->data);
 	/* Check all positions around p->row, p->col - 1 except for 
 	 * path where you came from */
 	if (dir == LEFT){
@@ -187,12 +255,10 @@ static int path_is_valid(Maze_T maze, Position p, enum Directions dir)
 		if (*curr_char == PATH) 
 			return 0;
 		curr_char = uarray2_at(maze->data, p->row + 1, p->col + 1);
-		if (*curr_char == PATH && p->row != height - 2 
-				&& p->col != width - 2) /* special case */
+		if (*curr_char == PATH)
 			return 0;
 		curr_char = uarray2_at(maze->data, p->row + 2, p->col);
-		if (*curr_char == PATH && p->row != height - 2 
-				&& p->col != width - 2) /* special case */
+		if (*curr_char == PATH) 
 			return 0;
 		return 1;
 	} else if (dir == UP) {
@@ -208,15 +274,13 @@ static int path_is_valid(Maze_T maze, Position p, enum Directions dir)
 		return 1;
 	} else if (dir == RIGHT) {
 		curr_char = uarray2_at(maze->data, p->row + 1, p->col + 1);
-		if (*curr_char == PATH && p->row != height - 2 
-				&& p->col != width - 2) /* special case */
+		if (*curr_char == PATH)
 			return 0;
 		curr_char = uarray2_at(maze->data, p->row - 1, p->col + 1);
 		if (*curr_char == PATH)
 			return 0;
 		curr_char = uarray2_at(maze->data, p->row, p->col + 2);
-		if (*curr_char == PATH && p->row != height - 2 
-				&& p->col != width - 2) /* special case */
+		if (*curr_char == PATH)
 			return 0;
 		return 1;
 	} else {
@@ -258,47 +322,21 @@ static void clean_up_maze(int row, int col, void *val, void *cl)
 		*curr = EMPTY;
 	return;
 }
-extern void solve_maze(Maze_T maze)
-{
-	assert(maze != NULL);
-	Stack_T paths = stack_new();
-	int end_found = 0;
-	int no_path = 0;
-	char *curr_char;
-	/* first path pos will be (1,1) */
-	Position curr = malloc(sizeof(*curr));
-	curr->row = 1;
-	curr->col = 1;
-	do {
-		curr_char = uarray2_at(maze->data, curr->row, curr->col);
-		*curr_char = PATH;
-		if (!no_path)
-			stack_push(paths, curr);
-		no_path = 0;
-		for (int i = 0; i < 4; i++) {
-			if (get_char(maze, curr, i) == END) {
-				end_found = 1;
-				break;
-			}
-			if (get_char(maze, curr, i) == EMPTY) {
-				curr = update_pos(curr, i);
-				break;
-			} /* no valid path around all 4 positions */
-			if (i == 3) 
-				no_path = 1;
-		}
-		if (no_path) {
-			*curr_char = OLD_PATH;
-			//free(curr);
-			curr = stack_pop(paths);
-		}
-		if (end_found)
-			break;
-	} while (!is_empty(paths));
-	if (!end_found)
-		printf("MAZE HAS NO SOLUTION\n");
-	uarray2_map(maze->data, remove_non_path, NULL);
-	return;
 
+static void rm_old_paths(int row, int col, void *val, void *cl)
+{
+	(void)row;
+	(void)col;
+	(void)cl;
+	char *curr = val;
+	if (*curr == OLD_PATH)
+		*curr = EMPTY;
+	return;
 }
 
+#undef WALL 
+#undef EMPTY
+#undef START
+#undef END
+#undef PATH
+#undef OLD_PATH

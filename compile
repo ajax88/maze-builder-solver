@@ -18,5 +18,5 @@ for i in */*.c
 do 
 	gcc $FLAGS -c $i
 done
-gcc $FLAGS -o build_solve build_solve.o \
-	uarray2.o stack.o mazebuilder.o \
+gcc $FLAGS -o maze_main maze_main.o \
+	uarray2.o stack.o maze_buildsolve.o \
