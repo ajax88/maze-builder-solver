@@ -25,17 +25,30 @@ int main(int argc, char *argv[])
 	printf("Enter the height of your maze (must be greater than 3)\n");
 	fgets(input, MAX_INPUT, stdin);
 	height = strtol(input, &trash, 10);
+	
 
 	printf("Enter the width of your maze (must be greater than 3)\n");
 	fgets(input, MAX_INPUT, stdin);
 	width = strtol(input, &trash, 10);
 
 	Maze_T maze = get_maze(height, width);
-	printf("Unsolved maze: \n");
+
 	print_maze(maze);
-	solve_maze(maze);
-	printf("Solved maze: \n");
-	print_maze(maze);
+	printf("Above is the unsolved maze - solve it? (y/n)\n");
+	char answer = getchar();
+	while (answer != 'n' && answer != 'y') {
+		printf("Please input a valid character\n");
+		answer = getchar();
+	}
+	if (answer == 'y') {
+		solve_maze(maze);
+		print_maze(maze);
+		printf("Above is the solved maze!\n");
+	}
+	else if (answer == 'n') {
+		printf("Good luck then!\n");
+	}
+	fclose(stdin);
 	free_maze(&maze);
 	return 0;
 }
